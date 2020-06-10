@@ -1,0 +1,88 @@
+version: '3'
+
+networks:
+  skynet_new:
+
+services:
+  traefik:
+    image: traefik
+    container_name: traefik
+    restart: unless-stopped
+    ports:
+      - 80:80
+      - 8081:8080
+    volumes:
+      - ./docker-config/traefik/traefik.yml:/etc/traefik/traefik.yml
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - skynet_new
+  laravel:
+    build:
+      context: ./Dockerfile
+      dockerfile: Laravel.dockerfile
+    container_name: laravel
+    ports:
+      - 9000:9000
+    links:
+      - db
+      - redis
+    volumes:
+      - ./src:/var/www/html
+    restart: always
+    networks:
+      - skynet_new
+  db:
+    image: mysql:latest
+    container_name: db
+    ports:
+      - 3306:3306
+    tty: true
+    environment:
+      MYSQL_ROOT_PASSWORD: skynet
+      MYSQL_DATABASE: skynet
+    restart: unless-stopped
+    networks:
+      - skynet_new
+  redis:
+    image:
+      redis:latest
+    container_name: redis
+    ports:
+      - 6380:6380
+    networks:
+      - skynet_new
+    restart: always
+  composer:
+    image: composer:latest
+    container_name: composer
+    volumes:
+      - ./src:/var/www/html
+    working_dir: /var/www/html
+    entrypoint: ['composer','install']
+    depends_on:
+      - laravel
+    networks:
+      - skynet_new
+  yarn:
+    image: node:alpine3.12
+    container_name: yarn
+    volumes:
+      - ./src:/var/www/html
+    working_dir: /var/www/html
+    entrypoint: ['yarn','install']
+    networks:
+      - skynet_new
+  artisan:
+    build:
+      context: ./Dockerfile
+      dockerfile: Laravel.dockerfile
+    container_name: artisan
+    volumes:
+      - ./src:/var/www/html
+    depends_on:
+      - db
+      - laravel
+    working_dir: /var/www/html
+    entrypoint: ['php', '/var/www/html/artisan', 'migrate']
+    networks:
+      - skynet_new
