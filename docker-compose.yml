@@ -9,7 +9,6 @@ services:
     container_name: traefik
     restart: unless-stopped
     ports:
-      - 80:80
       - 8081:8080
     volumes:
       - ./docker-config/traefik/traefik.yml:/etc/traefik/traefik.yml
@@ -22,20 +21,28 @@ services:
       dockerfile: Laravel.dockerfile
     container_name: laravel
     ports:
-      - 9000:9000
+      - 8082:80
     links:
       - db
       - redis
     volumes:
       - ./src:/var/www/html
+      - ./docker-config/apache2/sites-available/000-default.conf:/etc/apache2/sites-available/000-default.conf
+      - ./docker-config/apache2/sites-enabled/000-default.conf:/etc/apache2/sites-enabled/000-default.conf
+      - ./docker-config/apache2/apache2.conf:/etc/apache2/apache2.conf
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`skynet.localhost`)"
+      - "traefik.http.routers.whoami.entrypoints=web"
+      - "treafik.port=80"
     restart: always
     networks:
       - skynet_new
   db:
     image: mysql:latest
-    container_name: db
+    container_name: db_host
     ports:
-      - 3306:3306
+      - 3307:3306
     tty: true
     environment:
       MYSQL_ROOT_PASSWORD: skynet
@@ -68,6 +75,8 @@ services:
     container_name: yarn
     volumes:
       - ./src:/var/www/html
+    depends_on:
+      - laravel
     working_dir: /var/www/html
     entrypoint: ['yarn','install']
     networks:
@@ -80,8 +89,9 @@ services:
     volumes:
       - ./src:/var/www/html
     depends_on:
-      - db
       - laravel
+      - db
+      - composer
     working_dir: /var/www/html
     entrypoint: ['php', '/var/www/html/artisan', 'migrate']
     networks:
