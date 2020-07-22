@@ -1,4 +1,4 @@
-FROM php:7.4.8-fpm
+FROM php:7.4.8-apache
 
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
